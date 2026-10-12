@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>PLC控制7段数码管模拟器(a-g+dp)</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui}
+body{padding:30px;max-width:520px;margin:0 auto;background:#f4f4f4}
+h3{text-align:center;color:#222}
+.box{background:#fff;padding:24px;border-radius:12px;box-shadow:0 2px 8px #0002}
+.input-row{margin-bottom:20px;display:flex;gap:10px;align-items:center}
+#numIn{width:100px;padding:8px;font-size:18px}
+button{padding:8px 16px;font-size:16px;cursor:pointer}
+.err{color:red;height:20px}
+/* 七段管样式 */
+.seg-display{width:160px;height:280px;margin:20px auto;position:relative}
+.seg{position:absolute;background:#dddddd;transition:0.2s}
+.seg.on{background:#ff3333;box-shadow:0 0 12px #ff2222}
+/* a b c d e f g */
+.seg-a{width:90px;height:14px;top:0;left:35px}
+.seg-b{width:14px;height:90px;top:15px;right:0}
+.seg-c{width:14px;height:90px;bottom:15px;right:0}
+.seg-d{width:90px;height:14px;bottom:0;left:35px}
+.seg-e{width:14px;height:90px;bottom:15px;left:0}
+.seg-f{width:14px;height:90px;top:15px;left:0}
+.seg-g{width:90px;height:14px;top:130px;left:35px}
+/* dp小数点 */
+.seg-dp{width:16px;height:16px;bottom:4px;right:4px;border-radius:50%}
+.info{margin-top:20px;font-size:14px;color:#444;line-height:1.6}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+td,th{border:1px solid #ccc;padding:4px;text-align:center}
+</style>
+</head>
+<body>
+<div class="box">
+<h3>PLC 七段数码管模拟器（a-g + DP小数点）</h3>
+<div class="input-row">
+<label>输入数字(0~9)：</label>
+<input id="numIn" type="number" min="0" max="9" value="0">
+<button onclick="updateSeg()">刷新显示</button>
+</div>
+<div class="err" id="errMsg"></div>
+
+<div class="seg-display">
+<div class="seg seg-a" id="sa"></div>
+<div class="seg seg-b" id="sb"></div>
+<div class="seg seg-c" id="sc"></div>
+<div class="seg seg-d" id="sd"></div>
+<div class="seg seg-e" id="se"></div>
+<div class="seg seg-f" id="sf"></div>
+<div class="seg seg-g" id="sg"></div>
+<div class="seg seg-dp" id="sdp"></div>
+</div>
+
+<div class="info">
+<b>段定义：a、b、c、d、e、f、g、dp</b><br/>
+真值表（1=点亮，0=熄灭）
+<table>
+<tr><th>数字</th><th>a</th><th>b</th><th>c</th><th>d</th><th>e</th><th>f</th><th>g</th><th>dp</th></tr>
+<tr><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td></tr>
+<tr><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>2</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td><td>0</td></tr>
+<tr><td>3</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td><td>0</td></tr>
+<tr><td>4</td><td>0</td><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td><td>1</td><td>0</td></tr>
+<tr><td>5</td><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td></tr>
+<tr><td>6</td><td>1</td><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td></tr>
+<tr><td>7</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>8</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td></tr>
+<tr><td>9</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td></tr>
+</table>
+</div>
+</div>
+
+<script>
+// 七段码 数组顺序 [a,b,c,d,e,f,g,dp]
+const segTable = [
+[1,1,1,1,1,1,0,0], //0
+[0,1,1,0,0,0,0,0], //1
+[1,1,0,1,1,0,1,0], //2
+[1,1,1,1,0,0,1,0], //3
+[0,1,1,0,0,1,1,0], //4
+[1,0,1,1,0,1,1,0], //5
+[1,0,1,1,1,1,1,0], //6
+[1,1,1,0,0,0,0,0], //7
+[1,1,1,1,1,1,1,0], //8
+[1,1,1,1,0,1,1,0]  //9
+];
+const ids = ["sa","sb","sc","sd","se","sf","sg","sdp"];
+
+function updateSeg(){
+  const inputVal = document.getElementById("numIn").value;
+  const errDom = document.getElementById("errMsg");
+  errDom.innerText = "";
+  let num = parseInt(inputVal);
+  if(isNaN(num) || num<0 || num>9){
+    errDom.innerText="请输入0~9之间整数！";
+    return;
+  }
+  const bits = segTable[num];
+  for(let i=0;i<8;i++){
+    const dom = document.getElementById(ids[i]);
+    if(bits[i]) dom.classList.add("on");
+    else dom.classList.remove("on");
+  }
+}
+//初始化
+updateSeg();
+</script>
+</body>
+</html>
